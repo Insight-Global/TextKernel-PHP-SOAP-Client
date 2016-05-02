@@ -1,0 +1,14 @@
+{
+  "name": "Template",
+  "description": "template",
+  "license": "Closed",
+  "authors": [
+    {
+      "name": "Developers",
+      "email": "vortextangent@gmail.com",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+  }
+}

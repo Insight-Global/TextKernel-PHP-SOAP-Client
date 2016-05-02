@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="SovernSOAPService" default="build">
+    <property environment="env"/>
+    <target name="build"
+            depends="prepare,lint,phploc-ci,pdepend,phpmd-ci,phpcs-ci,phpcpd-ci,phpunit,phpdox,compass-compile,-check-failure"/>
+
+    <target name="clean" unless="clean.done" description="Cleanup build artifacts">
+        <delete dir="${basedir}/build/api"/>
+        <delete dir="${basedir}/build/coverage"/>
+        <delete dir="${basedir}/build/logs"/>
+        <delete dir="${basedir}/build/pdepend"/>
+        <delete dir="${basedir}/build/phpdox"/>
+        <delete dir="${basedir}/build/rpm"/>
+        <delete dir="${basedir}/build/testdox"/>
+        <property name="clean.done" value="true"/>
+    </target>
+
+    <target name="prepare" unless="prepare.done" depends="clean,generate-autoloader" description="Prepare for build">
+        <mkdir dir="${basedir}/build/api"/>
+        <mkdir dir="${basedir}/build/coverage"/>
+        <mkdir dir="${basedir}/build/logs"/>
+        <mkdir dir="${basedir}/build/pdepend"/>
+        <mkdir dir="${basedir}/build/rpm"/>
+        <mkdir dir="${basedir}/build/rpm/BUILD"/>
+        <mkdir dir="${basedir}/build/rpm/BUILDROOT"/>
+        <mkdir dir="${basedir}/build/rpm/RPMS"/>
+        <mkdir dir="${basedir}/build/rpm/SOURCES"/>
+        <mkdir dir="${basedir}/build/rpm/SPECS"/>
+        <mkdir dir="${basedir}/build/rpm/SRPMS"/>
+        <mkdir dir="${basedir}/build/testdox"/>
+        <copy file="${basedir}/build/SPECS/ms.spec" tofile="${basedir}/build/rpm/SPECS/ms.spec" />
+        <property name="prepare.done" value="true"/>
+    </target>
+
+    <target name="generate-autoloader" description="Generate autoloader code">
+        <exec executable="${basedir}/build/tools/phpab.phar" taskname="phpab">
+            <arg value="--output"/>
+            <arg path="src/autoload.php"/>
+            <arg path="src"/>
+            <arg path="vendor"/>
+        </exec>
+
+        <exec executable="${basedir}/build/tools/phpab.phar" taskname="phpab">
+            <arg value="--output"/>
+            <arg path="tests/autoload.php"/>
+            <arg path="tests"/>
+        </exec>
+    </target>
+
+    <target name="lint" depends="generate-autoloader">
+        <apply executable="php" failonerror="true" taskname="lint">
+            <arg value="-l"/>
+
+            <fileset dir="${basedir}/src">
+                <include name="**/*.php"/>
+                <modified/>
+            </fileset>
+
+            <fileset dir="${basedir}/tests">
+                <include name="**/*.php"/>
+                <modified/>
+            </fileset>
+        </apply>
+    </target>
+
+    <target name="phploc" description="Measure project size using PHPLOC">
+        <exec executable="${basedir}/build/tools/phploc.phar" taskname="phploc">
+            <arg value="--count-tests"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+    </target>
+
+    <target name="phploc-ci" depends="prepare"
+            description="Measure project size using PHPLOC and log result in CSV and XML format">
+        <exec executable="${basedir}/build/tools/phploc.phar" taskname="phploc">
+            <arg value="--count-tests"/>
+            <arg value="--log-csv"/>
+            <arg path="${basedir}/build/logs/phploc.csv"/>
+            <arg value="--log-xml"/>
+            <arg path="${basedir}/build/logs/phploc.xml"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+    </target>
+
+    <target name="pdepend" depends="prepare" description="Calculate software metrics using PHP_Depend">
+        <exec executable="${basedir}/build/tools/pdepend.phar" taskname="pdepend">
+            <arg value="--jdepend-xml=${basedir}/build/logs/jdepend.xml"/>
+            <arg path="${basedir}/src"/>
+        </exec>
+    </target>
+
+    <target name="phpmd" description="Perform project mess detection using PHPMD and print result in text format">
+        <exec executable="${basedir}/build/tools/phpmd.phar" taskname="phpmd">
+            <arg path="${basedir}/src"/>
+            <arg value="text"/>
+            <arg path="${basedir}/build/phpmd.xml"/>
+        </exec>
+    </target>
+
+    <target name="phpmd-ci" depends="prepare"
+            description="Perform project mess detection using PHPMD and log result in XML format">
+        <exec executable="${basedir}/build/tools/phpmd.phar" taskname="phpmd">
+            <arg path="${basedir}/src"/>
+            <arg value="xml"/>
+            <arg path="${basedir}/build/phpmd.xml"/>
+            <arg value="--reportfile"/>
+            <arg path="${basedir}/build/logs/pmd.xml"/>
+        </exec>
+    </target>
+
+    <target name="phpcs"
+            description="Find coding standard violations using PHP_CodeSniffer and print result in text format">
+        <exec executable="${basedir}/build/tools/phpcs.phar" taskname="phpcs">
+            <arg value="--standard=PSR2"/>
+            <arg value="--extensions=php"/>
+            <arg value="--ignore=autoload.php"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+    </target>
+
+    <target name="phpcs-ci" depends="prepare"
+            description="Find coding standard violations using PHP_CodeSniffer and log result in XML format">
+        <exec executable="${basedir}/build/tools/phpcs.phar" output="/dev/null" taskname="phpcs">
+            <arg value="--report=checkstyle"/>
+            <arg value="--report-file=${basedir}/build/logs/checkstyle.xml"/>
+            <arg value="--standard=PSR2"/>
+            <arg value="--extensions=php"/>
+            <arg value="--ignore=autoload.php"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+    </target>
+
+    <target name="phpcpd" description="Find duplicate code using PHPCPD">
+        <exec executable="${basedir}/build/tools/phpcpd.phar" taskname="phpcpd">
+            <arg path="${basedir}/src"/>
+        </exec>
+    </target>
+
+    <target name="phpcpd-ci" depends="prepare"
+            description="Find duplicate code using PHPCPD and log result in XML format">
+        <exec executable="${basedir}/build/tools/phpcpd.phar" taskname="phpcpd">
+            <arg value="--log-pmd"/>
+            <arg path="${basedir}/build/logs/pmd-cpd.xml"/>
+            <arg path="${basedir}/src"/>
+        </exec>
+    </target>
+
+    <target name="phpunit" depends="prepare" description="Run unit tests with PHPUnit">
+        <exec executable="${basedir}/build/tools/phpunit.phar" resultproperty="result.phpunit" taskname="phpunit">
+            <arg value="--configuration"/>
+            <arg path="${basedir}/build/phpunit.xml"/>
+        </exec>
+    </target>
+
+    <target name="phpdox" depends="phploc-ci,phpcs-ci,phpmd-ci" description="Generate API documentation using phpDox">
+        <exec executable="${basedir}/build/tools/phpdox.phar" dir="${basedir}/build" taskname="phpdox"/>
+    </target>
+
+    <target name="-check-failure">
+        <fail message="PHPUnit did not finish successfully">
+            <condition>
+                <not>
+                    <equals arg1="${result.phpunit}" arg2="0"/>
+                </not>
+            </condition>
+        </fail>
+    </target>
+
+    <target name="update-dependencies" description="Updating Composer Dependencies">
+        <exec executable="php" taskname="composer" >
+            <arg value="-n" />
+            <arg value="${basedir}/build/tools/composer.phar" />
+            <arg value="update" />
+        </exec>
+        <delete dir="${basedir}/vendor/composer" />
+    </target>
+
+    <target name="phpcs-makediff"
+            description="Fix coding standard violations using PHP_CodeSniffer and Create diff">
+        <exec executable="${basedir}/build/tools/phpcs.phar" taskname="phpcs-fix">
+            <arg value="--report-diff=${basedir}/build/logs/cs-patch.diff"/>
+            <arg value="--standard=PSR2"/>
+            <arg value="--extensions=php"/>
+            <arg value="--ignore=autoload.php"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+        <exec executable="patch" taskname="phpcs-fix">
+            <arg value="-p0"/>
+            <arg value="ui ${basedir}/build/logs/cs-patch.diff"/>
+        </exec>
+    </target>
+
+    <target name="phpcbf"
+            description="Fix coding standard violations">
+        <exec executable="phpcbf" taskname="phpcs-fix">
+            <arg value="--standard=PSR2"/>
+            <arg value="--extensions=php"/>
+            <arg value="--ignore=autoload.php"/>
+            <arg path="${basedir}/src"/>
+            <arg path="${basedir}/tests"/>
+        </exec>
+    </target>
+</project>
+
